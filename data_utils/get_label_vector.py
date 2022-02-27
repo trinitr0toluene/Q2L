@@ -4,9 +4,9 @@ import os
 from tqdm import tqdm
 
 # intentonomy
-inte_image_path = 'YOUR_PATH/DataSet/Intentonomy/image'
-inte_train_anno_path = 'YOUR_PATH/DataSet/Intentonomy/anno/intentonomy_train2020.json'
-inte_val_anno_path = 'YOUR_PATH/DataSet/Intentonomy/anno/intentonomy_val2020.json'
+inte_image_path = '/data/zzy_data/intent_resize/test/low'
+inte_train_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_train2020.json'
+inte_val_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_test2020.json'
 
 # val/test data label transfer
 def label2vectors(int_label):
@@ -26,7 +26,8 @@ def prob2vectors(prob_vector, TH=0):
 def get_label_vectors(anno_path, image_path):
     stage = anno_path.split('/')[-1].split('.')[0].split('_')[-1].split('2',1)[0]
     dataset_name = anno_path.split('/')[-1].split('.')[0].split('_')[0]
-    
+    print(stage)
+
     label_vectors = []
     with open(anno_path, 'r') as f:
         label = json.load(f)
@@ -61,7 +62,7 @@ def get_label_vectors(anno_path, image_path):
             
     label_vectors = np.array(label_vectors)
     np.save(
-        './data/intentonomy/{}_label_vectors_{}{}.npy'.format(stage, dataset_name, '2020'),
+        '/home/zhangziyi/query2labels/data/intentonomy/{}_label_vectors_{}{}.npy'.format(stage, dataset_name, '2020'),
         label_vectors
     )
     
