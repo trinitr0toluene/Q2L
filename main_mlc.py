@@ -95,7 +95,7 @@ def parser_args():
 
     parser.add_argument('-p', '--print-freq', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
-    parser.add_argument('--resume', default='/data/zzy_data/zzy_model/pretrained/Q2L-CvT_w24-384/checkpoint.pkl', type=str, metavar='PATH',
+    parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('--resume_omit', default=[], type=str, nargs='*')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',

@@ -10,9 +10,9 @@ from PIL import Image
 from utils.cutout import SLCutoutPIL
 
 # YOUR_PATH/MyProject/others_prj/query2labels/data/intentonomy
-inte_image_path = 'YOUR_PATH/DataSet/Intentonomy/image'
-inte_train_anno_path = 'YOUR_PATH/DataSet/Intentonomy/anno/intentonomy_train2020.json'
-inte_val_anno_path = 'YOUR_PATH/DataSet/Intentonomy/anno/intentonomy_val2020.json'
+inte_image_path = '/data/zzy_data/intent_resize'
+inte_train_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_train2020.json'
+inte_val_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_val2020.json'
 
 class InteDataSet(data.Dataset):
     def __init__(self, 
