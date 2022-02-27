@@ -41,11 +41,11 @@ def parser_args():
     parser = argparse.ArgumentParser(description='Query2Label MSCOCO Training')
     parser.add_argument('--dataname', help='dataname', default='intentonomy', choices=['coco14','intentonomy'])
     # YOUR_PATH/DataSet/Intentonomy 
-    parser.add_argument('--dataset_dir', help='dir of dataset', default='YOUR_PATH/DataSet/Intentonomy')
-    parser.add_argument('--img_size', default=448, type=int,
+    parser.add_argument('--dataset_dir', help='dir of dataset', default='/data/zzy_data/intent_resize')
+    parser.add_argument('--img_size', default=224, type=int,
                         help='size of input images')
 
-    parser.add_argument('--output', metavar='DIR', default='YOUR_PATH/MyProject/others_prj/query2labels/Testoutput',
+    parser.add_argument('--output', metavar='DIR', default='/data/zzy_data/zzy_model/new_model/q2l',
                         help='path to output folder')
     parser.add_argument('--num_class', default=28, type=int,
                         help="Number of query slots")
@@ -82,12 +82,12 @@ def parser_args():
 
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
-    parser.add_argument('-b', '--batch-size', default=256, type=int,
+    parser.add_argument('-b', '--batch-size', default=128, type=int,
                         metavar='N',
                         help='mini-batch size (default: 256), this is the total '
                             'batch size of all GPUs')
 
-    parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
+    parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                         metavar='LR', help='initial learning rate', dest='lr')
     parser.add_argument('--wd', '--weight-decay', default=1e-2, type=float,
                         metavar='W', help='weight decay (default: 1e-2)',
@@ -95,7 +95,7 @@ def parser_args():
 
     parser.add_argument('-p', '--print-freq', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
-    parser.add_argument('--resume', default='', type=str, metavar='PATH',
+    parser.add_argument('--resume', default='/data/zzy_data/zzy_model/pretrained/Q2L-CvT_w24-384/checkpoint.pkl', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('--resume_omit', default=[], type=str, nargs='*')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
@@ -108,9 +108,9 @@ def parser_args():
 
 
     # distribution training
-    parser.add_argument('--world-size', default=-1, type=int,
+    parser.add_argument('--world-size', default=1, type=int,
                         help='number of nodes for distributed training')
-    parser.add_argument('--rank', default=-1, type=int,
+    parser.add_argument('--rank', default=0, type=int,
                         help='node rank for distributed training')
     parser.add_argument('--dist-url', default='env://', type=str,
                         help='url used to set up distributed training')
