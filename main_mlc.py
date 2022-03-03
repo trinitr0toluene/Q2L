@@ -175,6 +175,7 @@ def get_args():
 
 
 best_mAP = 0
+best_f1_samples = 0
 
 def main():
     args = get_args()
@@ -230,6 +231,7 @@ def main():
 
 def main_worker(args, logger):
     global best_mAP
+    global best_f1_samples
 
     # build model
     model = build_q2l(args)
@@ -327,7 +329,9 @@ def main_worker(args, logger):
     losses = AverageMeter('Loss', ':5.3f', val_only=True)
     losses_ema = AverageMeter('Loss_ema', ':5.3f', val_only=True)
     mAPs = AverageMeter('mAP', ':5.5f', val_only=True)
+    f1s = AverageMeter('mAP', ':5.5f', val_only=True)
     mAPs_ema = AverageMeter('mAP_ema', ':5.5f', val_only=True)
+    f1s_ema = AverageMeter('mAP', ':5.5f', val_only=True)
     
     f1_micros = AverageMeter('f1_micro', ':5.5f', val_only=True)
     f1_macros = AverageMeter('f1_macro', ':5.5f', val_only=True)
@@ -348,11 +352,16 @@ def main_worker(args, logger):
 
     end = time.time()
     best_epoch = -1
-    best_regular_mAP = 0
+    # best_regular_mAP = 0
+    best_regular_f1 = 0
     best_regular_epoch = -1
-    best_ema_mAP = 0
-    regular_mAP_list = []
-    ema_mAP_list = []
+    # best_ema_mAP = 0
+    best_ema_f1 = 0
+    # regular_mAP_list = []
+    regular_f1_list = []
+    # ema_mAP_list = []
+    ema_f1_list = []
+
     torch.cuda.empty_cache()
     for epoch in range(args.start_epoch, args.epochs):
         train_sampler.set_epoch(epoch)
@@ -378,14 +387,18 @@ def main_worker(args, logger):
             
             losses.update(loss)
             mAPs.update(mAP)
+            f1s.update(f1_samples)
             losses_ema.update(loss_ema)
             mAPs_ema.update(mAP_ema)
+            f1s_ema.update(f1_samples_ema)
             epoch_time.update(time.time() - end)
             end = time.time()
             eta.update(epoch_time.avg * (args.epochs - epoch - 1))
 
-            regular_mAP_list.append(mAP)
-            ema_mAP_list.append(mAP_ema)
+            # regular_mAP_list.append(mAP)
+            regular_f1_list.append(f1_samples)
+            # ema_mAP_list.append(mAP_ema)
+            ema_f1_list.append(f1_samples_ema)
 
             progress.display(epoch, logger)
 
@@ -404,31 +417,52 @@ def main_worker(args, logger):
                 summary_writer.add_scalar('val_f1_samples_ema', f1_samples_ema, epoch)
 
             # remember best (regular) mAP and corresponding epochs
-            if mAP > best_regular_mAP:
-                best_regular_mAP = max(best_regular_mAP, mAP)
-                best_regular_epoch = epoch
-            if mAP_ema > best_ema_mAP:
-                best_ema_mAP = max(mAP_ema, best_ema_mAP)
+            # if mAP > best_regular_mAP:
+            #     best_regular_mAP = max(best_regular_mAP, mAP)
+            #     best_regular_epoch = epoch
+            # if mAP_ema > best_ema_mAP:
+            #     best_ema_mAP = max(mAP_ema, best_ema_mAP)
             
-            if mAP_ema > mAP:
-                mAP = mAP_ema
+            # if mAP_ema > mAP:
+            #     mAP = mAP_ema
+            #     state_dict = ema_m.module.state_dict()
+            # else:
+            #     state_dict = model.state_dict()
+            # is_best = mAP > best_mAP
+            # if is_best:
+            #     best_epoch = epoch
+            # best_mAP = max(mAP, best_mAP)
+
+            # logger.info("{} | Set best mAP {} in ep {}".format(epoch, best_mAP, best_epoch))
+            # logger.info("   | best regular mAP {} in ep {}".format(best_regular_mAP, best_regular_epoch))
+
+            # remember best (regular) F1_samples and corresponding epochs
+            if f1_samples > best_regular_f1:
+                best_regular_f1 = max(best_regular_f1, f1_samples)
+                best_regular_epoch = epoch
+            if f1_samples_ema > best_ema_f1:
+                best_ema_f1 = max(f1_samples_ema, best_ema_f1)
+            
+            if f1_samples_ema > f1_samples:
+                f1_samples = f1_samples_ema
                 state_dict = ema_m.module.state_dict()
             else:
                 state_dict = model.state_dict()
-            is_best = mAP > best_mAP
+            is_best = f1_samples > best_f1_samples
             if is_best:
                 best_epoch = epoch
-            best_mAP = max(mAP, best_mAP)
+            best_f1_samples = max(f1_samples, best_f1_samples)
 
-            logger.info("{} | Set best mAP {} in ep {}".format(epoch, best_mAP, best_epoch))
-            logger.info("   | best regular mAP {} in ep {}".format(best_regular_mAP, best_regular_epoch))
+            logger.info("{} | Set best f1 {} in ep {}".format(epoch, best_f1_samples, best_epoch))
+            logger.info("   | best regular f1 {} in ep {}".format(best_regular_f1, best_regular_epoch))
 
             if dist.get_rank() == 0:
                 save_checkpoint({
                     'epoch': epoch + 1,
                     'arch': args.arch,
                     'state_dict': state_dict,
-                    'best_mAP': best_mAP,
+                    # 'best_mAP': best_mAP,
+                    'best_f1_samples': best_f1_samples,
                     'optimizer' : optimizer.state_dict(),
                 }, is_best=is_best, filename=os.path.join(args.output, 'checkpoint.pth.tar'))
             # filename=os.path.join(args.output, 'checkpoint_{:04d}.pth.tar'.format(epoch))
@@ -438,7 +472,8 @@ def main_worker(args, logger):
                     'epoch': epoch + 1,
                     'arch': args.arch,
                     'state_dict': model.state_dict(),
-                    'best_mAP': best_mAP,
+                    # 'best_mAP': best_mAP,
+                    'best_f1_samples': best_f1_samples,
                     'optimizer' : optimizer.state_dict(),
                 }, is_best=is_best, filename=os.path.join(args.output, 'checkpoint_nan.pth.tar'))
                 logger.info('Loss is NaN, break')
@@ -446,9 +481,20 @@ def main_worker(args, logger):
 
 
             # early stop
+    #         if args.early_stop:
+    #             if best_epoch >= 0 and epoch - max(best_epoch, best_regular_epoch) > 8:
+    #                 if len(ema_mAP_list) > 1 and ema_mAP_list[-1] < best_ema_mAP:
+    #                     logger.info("epoch - best_epoch = {}, stop!".format(epoch - best_epoch))
+    #                     if dist.get_rank() == 0 and args.kill_stop:
+    #                         filename = sys.argv[0].split(' ')[0].strip()
+    #                         killedlist = kill_process(filename, os.getpid())
+    #                         logger.info("Kill all process of {}: ".format(filename) + " ".join(killedlist)) 
+    #                     break
+
+    # print("Best mAP:", best_mAP)
             if args.early_stop:
                 if best_epoch >= 0 and epoch - max(best_epoch, best_regular_epoch) > 8:
-                    if len(ema_mAP_list) > 1 and ema_mAP_list[-1] < best_ema_mAP:
+                    if len(ema_f1_list) > 1 and ema_f1_list[-1] < best_ema_f1:
                         logger.info("epoch - best_epoch = {}, stop!".format(epoch - best_epoch))
                         if dist.get_rank() == 0 and args.kill_stop:
                             filename = sys.argv[0].split(' ')[0].strip()
@@ -456,8 +502,7 @@ def main_worker(args, logger):
                             logger.info("Kill all process of {}: ".format(filename) + " ".join(killedlist)) 
                         break
 
-    print("Best mAP:", best_mAP)
-
+    print("Best f1_samples:", best_f1_samples)
     if summary_writer:
         summary_writer.close()
     
@@ -766,5 +811,5 @@ if __name__ == '__main__':
     
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '5678'
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1,2,3,4'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '2,3,4'
     main()
