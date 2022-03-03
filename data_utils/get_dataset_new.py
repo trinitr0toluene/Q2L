@@ -13,6 +13,7 @@ from utils.cutout import SLCutoutPIL
 inte_image_path = '/data/zzy_data/intent_resize'
 inte_train_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_train2020.json'
 inte_val_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_val2020.json'
+inte_test_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_test2020.json'
 
 class InteDataSet(data.Dataset):
     def __init__(self, 
@@ -108,13 +109,20 @@ def get_datasets(args):
             input_transform=test_data_transform,
             labels_path='data/intentonomy/val_label_vectors_intentonomy2020.npy',
         )
+        test_dataset = InteDataSet(
+            image_dir=inte_image_path,
+            anno_path=inte_test_anno_path,
+            input_transform=test_data_transform,
+            labels_path='data/intentonomy/test_label_vectors_intentonomy2020.npy',
+        )
 
     else:
         raise NotImplementedError("Unknown dataname %s" % args.dataname)
 
     print("len(train_dataset):", len(train_dataset)) 
     print("len(val_dataset):", len(val_dataset))
-    return train_dataset, val_dataset
+    print("len(test_dataset):", len(test_dataset))
+    return train_dataset, val_dataset, test_dataset
 
 
 

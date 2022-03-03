@@ -253,7 +253,7 @@ def main_worker(args, logger):
             logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
     # Data loading code
-    train_dataset, val_dataset = get_datasets(args)
+    train_dataset, val_dataset, test_dataset = get_datasets(args)
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     assert args.batch_size // dist.get_world_size() == args.batch_size / dist.get_world_size(), 'Batch size is not divisible by num of gpus.' 
     val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False)
@@ -261,12 +261,21 @@ def main_worker(args, logger):
         val_dataset, batch_size=args.batch_size // dist.get_world_size(), shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=val_sampler)
 
+    test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset, shuffle=False)
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=args.batch_size // dist.get_world_size(), shuffle=False,
+        num_workers=args.workers, pin_memory=True, sampler=test_sampler)
+
 
     if args.evaluate:
         _, mAP, f1_micros, f1_macros, f1_samples = validate(val_loader, model, criterion, args, logger)
+        logger.info('val dataset:')
         logger.info(' * mAP {mAP:.5f}'.format(mAP=mAP))
         logger.info('Validation: f1_micros: {}, f1_macros: {}, f1_samples: {}'.format(f1_micros, f1_macros, f1_samples))
-        
+        _, mAP, f1_micros, f1_macros, f1_samples = validate(test_loader, model, criterion, args, logger)
+        logger.info('test dataset:')
+        logger.info(' * mAP {mAP:.5f}'.format(mAP=mAP))
+        logger.info('Validation: f1_micros: {}, f1_macros: {}, f1_samples: {}'.format(f1_micros, f1_macros, f1_samples))
         return
     
 
