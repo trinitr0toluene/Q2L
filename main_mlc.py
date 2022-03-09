@@ -302,7 +302,7 @@ def main_worker(args, logger):
             logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
     # Data loading code
-    train_dataset, val_dataset = get_datasets(args)
+    train_dataset, val_dataset, test_dataset = get_datasets(args)
 
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     assert args.batch_size // dist.get_world_size() == args.batch_size / dist.get_world_size(), 'Batch size is not divisible by num of gpus.'
@@ -809,7 +809,12 @@ if __name__ == '__main__':
     #     '-b', '32',
     # ]
     
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '5678'
-    os.environ['CUDA_VISIBLE_DEVICES'] = '2,3,4'
+    # os.environ['MASTER_ADDR'] = 'localhost'
+    # os.environ['MASTER_PORT'] = '5678'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+    os.environ['WORLD_SIZE'] = '4'
     main()
+
+
+    # python -m torch.distributed.launch --nproc_per_node=4 main_mlc.py --world-size 1 --rank 0
+    # no dist-url
