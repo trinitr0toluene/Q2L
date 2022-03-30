@@ -36,12 +36,16 @@ def parser_args():
     parser = argparse.ArgumentParser(description='Query2Label for multilabel classification')
     parser.add_argument('--dataname', help='dataname', default='intentonomy', choices=['coco14','intentonomy'])
     # YOUR_PATH/DataSet/Intentonomy 
-    parser.add_argument('--dataset_dir', help='dir of dataset', default='/data/zzy_data/intent_resize')
+    parser.add_argument('--dataset_dir', help='dir of dataset', default='/data/sqhy_data/intent_resize/low')
+    parser.add_argument('--label_feature_dir', help='dir of label feature', default='/data/sqhy_data/intent_resize')
     parser.add_argument('--img_size', default=224, type=int,
                         help='size of input images')
+    parser.add_argument('--use_label_features', default=True, type=bool, help='if use label features during training')
 
-    parser.add_argument('--output', metavar='DIR', default='/data/zzy_data/zzy_model/new_model/q2l',
+    parser.add_argument('--output', metavar='DIR', default='/data/zzy_data/zzy_model/q2l_weight+hier+com/hier(2)/result',
                         help='path to output folder')
+    parser.add_argument('--resume', default="/data/sqhy_model/trans/q2l_weight+hier+com/hier(2)/model_best.pth.tar", type=str, metavar='PATH',
+                        help='path to latest checkpoint (default: none)')
     parser.add_argument('--loss', metavar='LOSS', default='asl', 
                         choices=['asl'],
                         help='loss functin')
@@ -88,7 +92,7 @@ def parser_args():
                         help='mini-batch size (default: 256), this is the total '
                             'batch size of all GPUs')
 
-    parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
+    parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
                         metavar='LR', help='initial learning rate', dest='lr')
     parser.add_argument('--wd', '--weight-decay', default=1e-2, type=float,
                         metavar='W', help='weight decay (default: 1e-2)',
@@ -96,10 +100,10 @@ def parser_args():
 
     parser.add_argument('-p', '--print-freq', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
-    parser.add_argument('--resume', default='/data/zzy_data/zzy_model/new_model/q2l/model_best.pth.tar', type=str, metavar='PATH',
-                        help='path to latest checkpoint (default: none)')
+    # parser.add_argument('--resume', default='/data/sqhy_model/trans/q2l/text_feature+image(w)2/model_best.pth.tar', type=str, metavar='PATH',
+    #                     help='path to latest checkpoint (default: none)')
     parser.add_argument('--resume_omit', default=[], type=str, nargs='*')
-    parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
+    parser.add_argument('-e', '--evaluate', dest='evaluate',default=True, action='store_true',
                         help='evaluate model on validation set')
 
     parser.add_argument('--ema-decay', default=0.9997, type=float, metavar='M',
@@ -137,7 +141,7 @@ def parser_args():
     # * Transformer
     parser.add_argument('--enc_layers', default=1, type=int, 
                         help="Number of encoding layers in the transformer")
-    parser.add_argument('--dec_layers', default=2, type=int,
+    parser.add_argument('--dec_layers', default=3, type=int,
                         help="Number of decoding layers in the transformer")
     parser.add_argument('--dim_feedforward', default=8192, type=int,
                         help="Intermediate size of the feedforward layers in the transformer blocks")
@@ -303,19 +307,26 @@ def validate(val_loader, model, criterion, args, logger):
     with torch.no_grad():
         end = time.time()
         for i, (images, target) in enumerate(val_loader):
+
+            # target_label = label_loader(target, args)
+            # target_label = torch.from_numpy(target_label)
+            # target_label = target_label.cuda(non_blocking=True)
+
             images = images.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
 
             # compute output
             with torch.cuda.amp.autocast(enabled=args.amp):
+                # output = model(images,target_label)
                 output = model(images)
-                loss = criterion(output, target)
+                loss = criterion(output[0], target)
+                loss = loss.sum() / loss.size(0)
                
-                output_sm = nn.functional.sigmoid(output)
+                output_sm = nn.functional.sigmoid(output[0])
                
 
             # record loss
-            losses.update(loss.item(), images.size(0))
+            losses.update(loss.item(),images.size(0))
             mem.update(torch.cuda.max_memory_allocated() / 1024.0 / 1024.0)
 
            
@@ -451,6 +462,23 @@ def kill_process(filename:str, holdpid:int) -> List[str]:
             os.kill(int(idname), signal.SIGKILL)
     return idlist
 
+def label_loader(target,args):
+    level_path = args.label_feature_dir + "/" + str(len(target[0])) + "_text_features"
+    targets_features = np.zeros([len(target), args.num_class,768], dtype='float32')
+    for i, j in enumerate(target):
+        target_features = np.zeros([args.num_class, 768],dtype='float32')
+        for k in range(len(j)):
+            text_p = level_path + "/" + str(k)+ ".txt"
+            text = open(text_p, "r", encoding='utf-8')
+            text_str = list(filter(None, text.read().replace("\n", "").strip("[").strip("]").split(" ")))
+            text_feature = np.zeros(768, dtype='float32')
+            for w in range(len(text_str)):
+                text_feature[w] = float(text_str[w])
+            target_features[k] = text_feature
+        targets_features[i] = target_features
+
+    return targets_features
+
 if __name__ == '__main__':
     # sys.argv = ['main_mlc.py',
     #     '--dataname','intentonomy',
@@ -459,6 +487,6 @@ if __name__ == '__main__':
     # ]
     
     os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '5678'
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1,2,3,4'
+    os.environ['MASTER_PORT'] = '5667'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '3'
     main()

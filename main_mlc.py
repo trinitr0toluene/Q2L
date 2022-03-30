@@ -33,7 +33,7 @@ from utils.metric import voc_mAP
 from utils.misc import clean_state_dict
 from utils.slconfig import get_raw_dict
 
-from data_utils.get_dataset_new import get_datasets
+from data_utils.get_dataset_new import get_datasets, CLASS_9, CLASS_15
 from data_utils.metrics import validate_f1
 
 def parser_args():
@@ -41,13 +41,17 @@ def parser_args():
     parser = argparse.ArgumentParser(description='Query2Label MSCOCO Training')
     parser.add_argument('--dataname', help='dataname', default='intentonomy', choices=['coco14','intentonomy'])
     # YOUR_PATH/DataSet/Intentonomy 
-    parser.add_argument('--dataset_dir', help='dir of dataset', default='/data/zzy_data/intent_resize')
-    parser.add_argument('--img_size', default=224, type=int,
-                        help='size of input images')
+    parser.add_argument('--dataset_dir', help='dir of dataset', default='/data/sqhy_data/intent_resize/low')
+    parser.add_argument('--label_feature_dir', help='dir of label feature', default='/data/sqhy_data/intent_resize/')
+    parser.add_argument('--img_size', default=224, type=int,help='size of input images')
+    parser.add_argument('--if_train', default=True, type=bool, help='if train')
+    parser.add_argument('--use_label_features', default=False, type=bool, help='if use label features during training')
+    # parser.add_argument('--log_name', default='2*linear_', type=str, help='the name of log txt')
 
-    parser.add_argument('--output', metavar='DIR', default='/data/zzy_data/zzy_model/new_model/q2l',
+
+    parser.add_argument('--output', metavar='DIR', default='/data/zzy_data/zzy_model/correct_q2l(lr_mult=1)/1e-3/q2l_weight+hier+com/com+0.8fine-1',
                         help='path to output folder')
-    parser.add_argument('--num_class', default=28, type=int,
+    parser.add_argument('--num_class', default=28, type=int,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                         help="Number of query slots")
     parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                         help='use pre-trained model. default is False. ')
@@ -56,7 +60,7 @@ def parser_args():
     parser.add_argument('-a', '--arch', metavar='ARCH', default='Q2L-R101-448',
                         choices=available_models,
                         help='model architecture: ' +' | '.join(available_models) +
-                            ' (default: Q2L-R101-448)')
+                        ' (default: Q2L-R101-448)')
 
     # loss
     parser.add_argument('--eps', default=1e-5, type=float,
@@ -72,9 +76,9 @@ def parser_args():
     parser.add_argument('--loss_clip', default=0.0, type=float,
                                             help='scale factor for clip')  
 
-    parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
+    parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                         help='number of data loading workers (default: 32)')
-    parser.add_argument('--epochs', default=80, type=int, metavar='N',
+    parser.add_argument('--epochs', default=8, type=int, metavar='N',
                         help='number of total epochs to run')
 
     parser.add_argument('--val_interval', default=1, type=int, metavar='N',
@@ -95,7 +99,7 @@ def parser_args():
 
     parser.add_argument('-p', '--print-freq', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
-    parser.add_argument('--resume', default='', type=str, metavar='PATH',
+    parser.add_argument('--resume', default=None, type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('--resume_omit', default=[], type=str, nargs='*')
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
@@ -112,15 +116,17 @@ def parser_args():
                         help='number of nodes for distributed training')
     parser.add_argument('--rank', default=0, type=int,
                         help='node rank for distributed training')
+    # parser.add_argument('--dist-url', default='tcp://127.0.0.1:3717', type=str,
+    #                     help='url used to set up distributed training')
     parser.add_argument('--dist-url', default='env://', type=str,
                         help='url used to set up distributed training')
-    parser.add_argument('--seed', default=None, type=int,
+    parser.add_argument('--seed', default=1, type=int,
                         help='seed for initializing training. ')
     parser.add_argument("--local_rank", type=int, help='local rank for DistributedDataParallel')
 
 
     # data aug
-    parser.add_argument('--cutout', action='store_true', default=False,
+    parser.add_argument('--cutout', action='store_true', default=True,
                         help='apply cutout')
     parser.add_argument('--n_holes', type=int, default=1,
                         help='number of holes to cut out from image')              
@@ -136,7 +142,7 @@ def parser_args():
     # * Transformer
     parser.add_argument('--enc_layers', default=1, type=int, 
                         help="Number of encoding layers in the transformer")
-    parser.add_argument('--dec_layers', default=2, type=int,
+    parser.add_argument('--dec_layers', default=3, type=int,
                         help="Number of decoding layers in the transformer")
     parser.add_argument('--dim_feedforward', default=8192, type=int,
                         help="Intermediate size of the feedforward layers in the transformer blocks")
@@ -201,16 +207,18 @@ def main():
         args.local_rank = 0
 
     if args.seed is not None:
-        random.seed(args.seed)
         torch.manual_seed(args.seed)
         np.random.seed(args.seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.cuda.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
 
     
     torch.cuda.set_device(args.local_rank)
     print('| distributed init (local_rank {}): {}'.format(
         args.local_rank, args.dist_url), flush=True)
-    torch.distributed.init_process_group(backend='nccl', init_method=args.dist_url, 
-                                world_size=args.world_size, rank=args.rank)
+    torch.distributed.init_process_group(backend='nccl', init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
     cudnn.benchmark = True
     
 
@@ -218,7 +226,7 @@ def main():
     logger = setup_logger(output=args.output, distributed_rank=dist.get_rank(), color=False, name="Q2L")
     logger.info("Command: "+' '.join(sys.argv))
     if dist.get_rank() == 0:
-        path = os.path.join(args.output, "config.json")
+        path = os.path.join(args.output, "_config.json")
         with open(path, 'w') as f:
             json.dump(get_raw_dict(args), f, indent=2)
         logger.info("Full config saved to {}".format(path))
@@ -237,7 +245,7 @@ def main_worker(args, logger):
     model = build_q2l(args)
     model = model.cuda()
     ema_m = ModelEma(model, args.ema_decay) # 0.9997
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], broadcast_buffers=False)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], broadcast_buffers=False,find_unused_parameters=True)
 
     # criterion
     criterion = models.aslloss.AsymmetricLossOptimized(
@@ -249,6 +257,7 @@ def main_worker(args, logger):
 
     # optimizer
     args.lr_mult = args.batch_size / 256
+    # args.lr_mult = 0.5
     if args.optim == 'AdamW':
         param_dicts = [
             {"params": [p for n, p in model.module.named_parameters() if p.requires_grad]},
@@ -293,8 +302,7 @@ def main_worker(args, logger):
                 del state_dict[omit_name]
             model.module.load_state_dict(state_dict, strict=False)
             # model.module.load_state_dict(checkpoint['state_dict'])
-            logger.info("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
+            logger.info("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
             del checkpoint
             del state_dict
             torch.cuda.empty_cache() 
@@ -322,7 +330,6 @@ def main_worker(args, logger):
         logger.info('Validation: f1_micros: {}, f1_macros: {}, f1_samples: {}'.format(f1_micros, f1_macros, f1_samples))
         
         return
-    
 
     epoch_time = AverageMeterHMS('TT')
     eta = AverageMeterHMS('ETA', val_only=True)
@@ -332,11 +339,11 @@ def main_worker(args, logger):
     f1s = AverageMeter('mAP', ':5.5f', val_only=True)
     mAPs_ema = AverageMeter('mAP_ema', ':5.5f', val_only=True)
     f1s_ema = AverageMeter('mAP', ':5.5f', val_only=True)
-    
+
     f1_micros = AverageMeter('f1_micro', ':5.5f', val_only=True)
     f1_macros = AverageMeter('f1_macro', ':5.5f', val_only=True)
     f1_samples = AverageMeter('f1_samples', ':5.5f', val_only=True)
-    
+
     f1_micros_ema = AverageMeter('f1_micro_ema', ':5.5f', val_only=True)
     f1_macros_ema = AverageMeter('f1_macro_ema', ':5.5f', val_only=True)
     f1_samples_ema = AverageMeter('f1_samples_ema', ':5.5f', val_only=True)
@@ -348,7 +355,6 @@ def main_worker(args, logger):
 
     # one cycle learning rate
     scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, steps_per_epoch=len(train_loader), epochs=args.epochs, pct_start=0.2)
-
 
     end = time.time()
     best_epoch = -1
@@ -384,7 +390,7 @@ def main_worker(args, logger):
             # evaluate on validation set
             loss, mAP, f1_micros, f1_macros, f1_samples= validate(val_loader, model, criterion, args, logger)
             loss_ema, mAP_ema, f1_micros_ema, f1_macros_ema, f1_samples_ema = validate(val_loader, ema_m.module, criterion, args, logger)
-            
+
             losses.update(loss)
             mAPs.update(mAP)
             f1s.update(f1_samples)
@@ -422,7 +428,7 @@ def main_worker(args, logger):
             #     best_regular_epoch = epoch
             # if mAP_ema > best_ema_mAP:
             #     best_ema_mAP = max(mAP_ema, best_ema_mAP)
-            
+            #
             # if mAP_ema > mAP:
             #     mAP = mAP_ema
             #     state_dict = ema_m.module.state_dict()
@@ -432,7 +438,7 @@ def main_worker(args, logger):
             # if is_best:
             #     best_epoch = epoch
             # best_mAP = max(mAP, best_mAP)
-
+            #
             # logger.info("{} | Set best mAP {} in ep {}".format(epoch, best_mAP, best_epoch))
             # logger.info("   | best regular mAP {} in ep {}".format(best_regular_mAP, best_regular_epoch))
 
@@ -442,7 +448,7 @@ def main_worker(args, logger):
                 best_regular_epoch = epoch
             if f1_samples_ema > best_ema_f1:
                 best_ema_f1 = max(f1_samples_ema, best_ema_f1)
-            
+
             if f1_samples_ema > f1_samples:
                 f1_samples = f1_samples_ema
                 state_dict = ema_m.module.state_dict()
@@ -464,7 +470,7 @@ def main_worker(args, logger):
                     # 'best_mAP': best_mAP,
                     'best_f1_samples': best_f1_samples,
                     'optimizer' : optimizer.state_dict(),
-                }, is_best=is_best, filename=os.path.join(args.output, 'checkpoint.pth.tar'))
+                }, is_best=is_best,filename=os.path.join(args.output, 'checkpoint.pth.tar'))
             # filename=os.path.join(args.output, 'checkpoint_{:04d}.pth.tar'.format(epoch))
 
             if math.isnan(loss) or math.isnan(loss_ema):
@@ -475,7 +481,7 @@ def main_worker(args, logger):
                     # 'best_mAP': best_mAP,
                     'best_f1_samples': best_f1_samples,
                     'optimizer' : optimizer.state_dict(),
-                }, is_best=is_best, filename=os.path.join(args.output, 'checkpoint_nan.pth.tar'))
+                }, is_best=is_best,filename=os.path.join(args.output, 'checkpoint_nan.pth.tar'))
                 logger.info('Loss is NaN, break')
                 sys.exit(1)
 
@@ -488,9 +494,9 @@ def main_worker(args, logger):
     #                     if dist.get_rank() == 0 and args.kill_stop:
     #                         filename = sys.argv[0].split(' ')[0].strip()
     #                         killedlist = kill_process(filename, os.getpid())
-    #                         logger.info("Kill all process of {}: ".format(filename) + " ".join(killedlist)) 
+    #                         logger.info("Kill all process of {}: ".format(filename) + " ".join(killedlist))
     #                     break
-
+    #
     # print("Best mAP:", best_mAP)
             if args.early_stop:
                 if best_epoch >= 0 and epoch - max(best_epoch, best_regular_epoch) > 8:
@@ -499,10 +505,11 @@ def main_worker(args, logger):
                         if dist.get_rank() == 0 and args.kill_stop:
                             filename = sys.argv[0].split(' ')[0].strip()
                             killedlist = kill_process(filename, os.getpid())
-                            logger.info("Kill all process of {}: ".format(filename) + " ".join(killedlist)) 
+                            logger.info("Kill all process of {}: ".format(filename) + " ".join(killedlist))
                         break
 
     print("Best f1_samples:", best_f1_samples)
+
     if summary_writer:
         summary_writer.close()
     
@@ -540,13 +547,61 @@ def train(train_loader, model, ema_m, criterion, optimizer, scheduler, epoch, ar
         # measure data loading time
         data_time.update(time.time() - end)
 
+        # # label features
+        # target_label = label_loader(target,args)
+        # target_label = torch.from_numpy(target_label)
+        # target_label = target_label.cuda(non_blocking=True)
+
+        # hierarchical categories
+        if args.dataname == "intentonomy":
+            labels = np.array(target)
+            labels_9 = []
+            labels_15 = []
+            for k in range(len(labels)):
+                index_28 = [t for t, j in enumerate(labels[k]) if j == 1]
+
+                index_15 = [t for t in CLASS_15 for k, m in enumerate(index_28) if m in set(CLASS_15[t])]
+                label_15 = [0 for t in range(15)]
+                for t in index_15:
+                    if label_15[int(t)] != 1:
+                        label_15[int(t)] = 1.0
+                labels_15.append(label_15)
+
+                index_9 = [t for t in CLASS_9 for k, m in enumerate(index_15) if int(m) in set(CLASS_9[t])]
+                label_9 = [0 for t in range(9)]
+                for t in index_9:
+                    if label_9[int(t)] != 1:
+                        label_9[int(t)] = 1.0
+                labels_9.append(label_9)
+
+            labels_15 = torch.from_numpy(np.array(labels_15))
+            labels_9 = torch.from_numpy(np.array(labels_9))
+
+            labels_9 = labels_9.cuda(non_blocking=True)
+            labels_15 = labels_15.cuda(non_blocking=True)
+        # elif args.dataname == "coco14":
+        #     dd = target
         images = images.cuda(non_blocking=True)
         target = target.cuda(non_blocking=True)
 
+
         # compute output
         with torch.cuda.amp.autocast(enabled=args.amp):
+            # if args.use_label_features:
+            # output = model(images, target_label) # ouput(28,15,9,28(image))
+            # else:
             output = model(images)
-            loss = criterion(output, target)
+            loss_fine = criterion(output[0], target)
+            loss_middle = criterion(output[1], labels_15)
+            loss_coarse = criterion(output[2], labels_9)
+            com_loss = compare_loss(loss_fine,loss_middle,loss_coarse)
+            # loss_image = criterion(output[3], target)
+            # loss_image = loss_image.sum() / loss_fine.size(0)
+            loss_fine1 = loss_fine.sum() / loss_fine.size(0)
+            loss_middle1 = loss_middle.sum() / loss_middle.size(0)
+            loss_coarse1 = loss_coarse.sum() / loss_coarse.size(0)
+            # loss = loss_coarse1 + loss_middle1 + loss_fine1
+            loss = com_loss + 0.7 * loss_fine1
             if args.loss_dev > 0:
                 loss *= args.loss_dev
 
@@ -598,16 +653,26 @@ def validate(val_loader, model, criterion, args, logger):
     with torch.no_grad():
         end = time.time()
         for i, (images, target) in enumerate(val_loader):
+
+            # # if use_label_features:
+            # target_label = label_loader(target, args)
+            # target_label = torch.from_numpy(target_label)
+            # target_label = target_label.cuda(non_blocking=True)
+
             images = images.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
 
             # compute output
             with torch.cuda.amp.autocast(enabled=args.amp):
+                # if args.use_label_features:
+                # output = model(images,target_label)
+                # else:
                 output = model(images)
-                loss = criterion(output, target)
+                loss = criterion(output[0], target)
+                loss = loss.sum()/loss.size(0)
                 if args.loss_dev > 0:
                     loss *= args.loss_dev
-                output_sm = nn.functional.sigmoid(output)
+                output_sm = nn.functional.sigmoid(output[0])
                 if torch.isnan(loss):
                     saveflag = True
 
@@ -730,9 +795,8 @@ def _meter_reduce(meter):
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     # torch.save(state, filename)
     if is_best:
-        torch.save(state, os.path.split(filename)[0] + '/model_best.pth.tar')
+        torch.save(state, os.path.split(filename)[0] +'/model_best.pth.tar')
         # shutil.copyfile(filename, os.path.split(filename)[0] + '/model_best.pth.tar')
-
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -761,7 +825,6 @@ class AverageMeter(object):
             fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
 
-
 class AverageMeterHMS(AverageMeter):
     """Meter for timer in HH:MM:SS format"""
     def __str__(self):
@@ -789,8 +852,6 @@ class ProgressMeter(object):
         fmt = '{:' + str(num_digits) + 'd}'
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
 
-
-
 def kill_process(filename:str, holdpid:int) -> List[str]:
     import subprocess, signal
     res = subprocess.check_output("ps aux | grep {} | grep -v grep | awk '{{print $2}}'".format(filename), shell=True, cwd="./")
@@ -802,6 +863,48 @@ def kill_process(filename:str, holdpid:int) -> List[str]:
             os.kill(int(idname), signal.SIGKILL)
     return idlist
 
+
+def label_loader(target,args):
+
+    level_path = args.label_feature_dir + "/" + str(len(target[0])) + "_text_features"
+    targets_features = np.zeros([len(target), args.num_class,768], dtype='float32')
+    # for i, j in enumerate(target):
+    #     target_features = np.zeros([args.num_class, 768],dtype='float32')
+    #     for k in range(len(j)):
+    #         if j[k] != 0:
+    #             text_p = level_path + "/" + str(k)+ ".txt"
+    #             text = open(text_p, "r", encoding='utf-8')
+    #             text_str = list(filter(None, text.read().replace("\n", "").strip("[").strip("]").split(" ")))
+    #             text_feature = np.zeros(768, dtype='float32')
+    #             for w in range(len(text_str)):
+    #                 text_feature[w] = float(text_str[w])
+    #         else:
+    #             text_feature = np.zeros(768, dtype='float32')
+    #         target_features[k] = text_feature
+    #     targets_features[i] = target_features
+    for i, j in enumerate(target):
+        target_features = np.zeros([args.num_class, 768],dtype='float32')
+        for k in range(len(j)):
+            text_p = level_path + "/" + str(k)+ ".txt"
+            text = open(text_p, "r", encoding='utf-8')
+            text_str = list(filter(None, text.read().replace("\n", "").strip("[").strip("]").split(" ")))
+            text_feature = np.zeros(768, dtype='float32')
+            for w in range(len(text_str)):
+                text_feature[w] = float(text_str[w])
+            target_features[k] = text_feature
+        targets_features[i] = target_features
+
+    return targets_features
+
+def compare_loss(loss_fine, loss_middle, loss_coarse):
+    loss_fine = loss_fine.unsqueeze(1)
+    loss_middle = loss_middle.unsqueeze(1)
+    loss_coarse = loss_coarse.unsqueeze(1)
+    w = torch.cat((loss_fine,loss_middle,loss_coarse), dim=1)
+    max_w = torch.max(w, dim=1)
+    loss = max_w[0].sum() / loss_fine.size(0)
+    return loss
+
 if __name__ == '__main__':
     # sys.argv = ['main_mlc.py',
     #     '--dataname','intentonomy',
@@ -809,12 +912,8 @@ if __name__ == '__main__':
     #     '-b', '32',
     # ]
     
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    # os.environ['MASTER_PORT'] = '5678'
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
-    os.environ['WORLD_SIZE'] = '4'
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '5678'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+    # os.environ['WORLD_SIZE'] = '4'
     main()
-
-
-    # python -m torch.distributed.launch --nproc_per_node=4 main_mlc.py --world-size 1 --rank 0
-    # no dist-url

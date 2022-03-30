@@ -15,6 +15,36 @@ inte_train_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_tra
 inte_val_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_val2020.json'
 inte_test_anno_path = '/data/zzy_data/intent_resize/annotations/intentonomy_test2020.json'
 
+CLASS_15 = {
+    '0': [24, 27],
+    '1': [5],
+    '2': [13],
+    '3': [11],
+    '4': [3, 7, 8, 9, 19],
+    '5': [4, 6, 20, 21],
+    '6': [14],
+    '7': [15, 16],
+    '8': [2, 22, 23],
+    '9': [0],
+    '10': [17, 25],
+    '11': [10],
+    '12': [1],
+    '13': [12],
+    '14': [18, 26],
+}
+
+CLASS_9 = {
+    '0': [0, 1],
+    '1': [2, 3],
+    '2': [4, 5],
+    '3': [6],
+    '4': [7, 8, 9],
+    "5": [10],
+    '6': [11],
+    '7': [12],
+    '8': [13, 14]
+}
+
 class InteDataSet(data.Dataset):
     def __init__(self, 
                  image_dir, 
